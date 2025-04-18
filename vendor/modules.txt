@@ -1,0 +1,5 @@
+# github.com/pechorka/gostdlib v0.10.0
+## explicit; go 1.22.0
+github.com/pechorka/gostdlib/pkg/clipboard
+github.com/pechorka/gostdlib/pkg/errs
+github.com/pechorka/gostdlib/pkg/uuid

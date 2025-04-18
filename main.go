@@ -10,8 +10,9 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/pechorka/dev-tools/pkg/clipboard"
-	"github.com/pechorka/dev-tools/pkg/errs"
+	"github.com/pechorka/gostdlib/pkg/clipboard"
+	"github.com/pechorka/gostdlib/pkg/errs"
+	"github.com/pechorka/gostdlib/pkg/uuid"
 )
 
 func main() {
@@ -20,6 +21,7 @@ func main() {
 
 	cmds := []Command{
 		newB64Command(),
+		newUuidCommand(),
 	}
 	err := run(ctx, cmds)
 	if err != nil {
@@ -47,20 +49,11 @@ func run(ctx context.Context, cmds []Command) error {
 		}
 	}
 
-	return errs.New("%s is unknown command", cmdName)
+	return errs.Errorf("%s is unknown command", cmdName)
 }
 
-var isDebug = os.Getenv("DEBUG") != ""
-
 func usage(err error, cmds []Command) {
-	var errMsg string
-	var se *errs.StackError
-	if !isDebug && errs.As(err, &se) {
-		errMsg = se.Msg()
-	} else {
-		errMsg = err.Error()
-	}
-	fmt.Fprintf(os.Stderr, "%s\nUsage:\n", errMsg)
+	fmt.Fprintf(os.Stderr, "%s\nUsage:\n", err.Error())
 	fmt.Fprintf(os.Stderr, "%s [global flags] <command> [flags]\n\n", os.Args[0])
 	fmt.Fprintln(os.Stderr, "Global flags:")
 	flag.PrintDefaults()
@@ -118,6 +111,45 @@ func newB64Command() Command {
 	}
 }
 
+func newUuidCommand() Command {
+	const name = "uuid"
+	fs := newFlagSet(name)
+
+	v4 := fs.Bool("v4", true, "generate v4 uuid")
+	v7 := fs.Bool("v7", true, "generate v7 uuid")
+	crypto := boolAlias(fs, "crypto", "c", false, "use cryptographic random generator. Slower and may fail")
+
+	return Command{
+		Name:  name,
+		Short: "b64",
+		FS:    fs,
+		Run: func(ctx context.Context) error {
+			var output string
+			var err error
+			switch {
+			case *v4 && !*crypto:
+				output = uuid.MustV4PseudoString()
+			case *v4 && *crypto:
+				output, err = uuid.NewV4CryptoString()
+			case *v7 && !*crypto:
+				output = uuid.MustV7PseudoString()
+			case *v7 && *crypto:
+				output, err = uuid.NewV4CryptoString()
+			}
+			if err != nil {
+				return err
+			}
+
+			err = writeOutput("", []byte(output))
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+}
+
 func readInput(filePath, text string) ([]byte, error) {
 	if text != "" {
 		// TODO:implement custom flag that will allow to provide byte input
@@ -127,7 +159,7 @@ func readInput(filePath, text string) ([]byte, error) {
 	if filePath != "" {
 		fileContent, err := os.ReadFile(filePath)
 		if err != nil {
-			return nil, errs.Wrap(err, "failed to read file %s", filePath)
+			return nil, errs.Wrapf(err, "failed to read file %s", filePath)
 		}
 
 		return fileContent, nil
@@ -160,7 +192,7 @@ func writeOutput(filePath string, data []byte) error {
 	if filePath != "" {
 		err := os.WriteFile(filePath, data, os.ModePerm)
 		if err != nil {
-			return errs.Wrap(err, "failed to write data to file %s", filePath)
+			return errs.Wrapf(err, "failed to write data to file %s", filePath)
 		}
 	}
 

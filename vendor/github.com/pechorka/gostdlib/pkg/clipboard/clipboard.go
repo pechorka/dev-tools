@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/pechorka/dev-tools/pkg/errs"
+	"github.com/pechorka/gostdlib/pkg/errs"
 )
 
 func Read() ([]byte, error) {
@@ -31,14 +31,14 @@ func Read() ([]byte, error) {
 	case "windows":
 		return runCommand("powershell", "-NoProfile", "-Command", "Get-Clipboard")
 	default:
-		return nil, errs.New("unsupported os %s", os)
+		return nil, errs.Errorf("unsupported os %s", os)
 	}
 }
 
 func runCommand(name string, args ...string) ([]byte, error) {
 	path, err := exec.LookPath(name)
 	if err != nil {
-		return nil, errs.Wrap(err, "failed to lookup program %s", name)
+		return nil, errs.Wrapf(err, "failed to lookup program %s", name)
 	}
 
 	cmd := exec.Command(path, args...)
