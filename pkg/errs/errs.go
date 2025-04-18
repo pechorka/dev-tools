@@ -56,3 +56,7 @@ func Wrap(err error, format string, args ...any) error {
 func As(err error, target any) bool {
 	return errors.As(err, target)
 }
+
+func Join(errs ...error) error {
+	return errors.Join(errs)
+}

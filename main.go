@@ -10,7 +10,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/atotto/clipboard"
+	"github.com/pechorka/dev-tools/pkg/clipboard"
 	"github.com/pechorka/dev-tools/pkg/errs"
 )
 
@@ -145,12 +145,12 @@ func readInput(filePath, text string) ([]byte, error) {
 		return stdinContent, nil
 	}
 
-	clipboardContent, err := clipboard.ReadAll()
+	clipboardContent, err := clipboard.Read()
 	if err != nil {
 		return nil, errs.Wrap(err, "failed to read clipboard content")
 	}
-	if clipboardContent != "" {
-		return []byte(clipboardContent), nil
+	if len(clipboardContent) > 0 {
+		return clipboardContent, nil
 	}
 
 	return nil, errs.New("no input provided")
