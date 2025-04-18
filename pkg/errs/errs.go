@@ -47,7 +47,8 @@ func New(format string, args ...any) error {
 }
 
 func Wrap(err error, format string, args ...any) error {
-	format += ": %w"
+	// TODO: implement proper wrap
+	format += ": %v"
 	args = append(args, err)
 	return New(format, args...)
 }

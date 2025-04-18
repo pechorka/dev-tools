@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/atotto/clipboard"
 	"github.com/pechorka/dev-tools/pkg/errs"
 )
 
@@ -49,11 +50,12 @@ func run(ctx context.Context, cmds []Command) error {
 	return errs.New("%s is unknown command", cmdName)
 }
 
+var isDebug = os.Getenv("DEBUG") != ""
+
 func usage(err error, cmds []Command) {
 	var errMsg string
 	var se *errs.StackError
-	if errs.As(err, &se) {
-		// TODO: implement debug mode that will print error with stack
+	if !isDebug && errs.As(err, &se) {
 		errMsg = se.Msg()
 	} else {
 		errMsg = err.Error()
@@ -95,9 +97,6 @@ func newB64Command() Command {
 			if err != nil {
 				return err
 			}
-			if len(input) == 0 {
-				return errs.New("no input provided")
-			}
 
 			var output []byte
 			if *decode {
@@ -121,32 +120,40 @@ func newB64Command() Command {
 
 func readInput(filePath, text string) ([]byte, error) {
 	if text != "" {
-		// TODO:implement custom byte flag
+		// TODO:implement custom flag that will allow to provide byte input
 		return []byte(text), nil
 	}
+
 	if filePath != "" {
-		content, err := os.ReadFile(filePath)
+		fileContent, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil, errs.Wrap(err, "failed to read file %s", filePath)
 		}
 
-		return content, nil
+		return fileContent, nil
 	}
 
 	fi, err := os.Stdin.Stat()
 	if err != nil {
 		return nil, errs.Wrap(err, "failed to stat stdin")
 	}
-	if fi.Mode()&os.ModeCharDevice != 0 {
-		return nil, errs.New("no input provided")
+	if fi.Mode()&os.ModeCharDevice == 0 {
+		stdinContent, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, errs.Wrap(err, "failed to read text from stdin")
+		}
+		return stdinContent, nil
 	}
 
-	content, err := io.ReadAll(os.Stdin)
+	clipboardContent, err := clipboard.ReadAll()
 	if err != nil {
-		return nil, errs.Wrap(err, "failed to read text from stdin")
+		return nil, errs.Wrap(err, "failed to read clipboard content")
+	}
+	if clipboardContent != "" {
+		return []byte(clipboardContent), nil
 	}
 
-	return content, nil
+	return nil, errs.New("no input provided")
 }
 
 func writeOutput(filePath string, data []byte) error {
@@ -173,14 +180,6 @@ func newFlagSet(name string) *flag.FlagSet {
 	}
 
 	return fs
-}
-
-func intAlias(fs *flag.FlagSet, short, long string, value int, usage string) *int {
-	var dst int
-	fs.IntVar(&dst, short, value, usage)
-	fs.IntVar(&dst, long, value, usage)
-
-	return &dst
 }
 
 func stringAlias(fs *flag.FlagSet, short, long string, value string, usage string) *string {
